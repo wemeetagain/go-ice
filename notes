@@ -1,0 +1,43 @@
+ice - http://tools.ietf.org/html/rfc5245
+gather candidates - each has component ID, increments by 1 for each stream
+    - host candidates 
+        - bind to port on IP address attached to interface(s)
+    - Server reflexive and relayed candidates 
+        - 'should' be used 
+        	- https://github.com/denis-beurive/GoStun
+        - 'should' use single STUN and/or TURN
+        - TURN
+            - allocate requests should be authed
+            - try new transaction every Ta milliseconds after
+            - On allocate rejection, send binding request for server reflexive only
+    - each candidate is assigned fondation ID, two candidates MUST have the same ID when:
+        - same type - host, relayed, server reflex, peer reflex
+        - their IP addresses are the same
+        - for reflexive and relayed candidates, the STUN/TURN serevers have the same IP addr
+        - same transport protocol - UDP, TCP
+    - candidates must be kept alive
+        - additional binding requets - STUN
+        - additional refresh requests - TURN
+prioritize them
+    - unique priotity per candidate (1- 2^31-1)
+    - type preference 0-126 inclusive,
+        - 0 as last resort
+        - types are local, server reflex., peer, relayed
+        - 126 host, 100 server reflex, 110 peer reflex, 0 relay
+    - local preference 0-65535 inclusive
+        - single IP set to 65535, multiple IPs set one lower
+    - priority = 2^24 * type preference + 2^8 * local preference + 256 - component ID
+
+eliminate redundant
+    - redundant when transport addresses and bases equal
+    - remove lowe priotiry
+choose default candidates
+    - one per media stream
+    - recommended that the default candidates are relayed, then server reflex, then host
+formulate and send SDP offer
+    - m line fore each media stream
+        - will perform connectivit checks on the first m line forst, most important stream first
+    - candidate attribute for each candidate for a particular media stream
+        - http://tools.ietf.org/html/rfc5245#section-15
+        - candidate:foundation component-id transport priority connection-address port cand-type rel-addr rel-port
+    - if not RTCP must add b=RS:0 b=RR:0
