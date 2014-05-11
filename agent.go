@@ -1,3 +1,5 @@
+// based partially on ice4j
+
 package ice
 
 import (
@@ -8,12 +10,10 @@ import (
     "strconv"
     )
 
-
-
 type IceServer struct {
-    Urls []string
-    LocalCred Credential
-    RemoteCred Credential
+    Urls        []string
+    CredLocal   Credential
+    CredRemote  Credential
     Description SessionDescription
 }
 
@@ -22,25 +22,13 @@ type Credential struct {
     Password string
 }
 
-type Media struct {
-    Conn *net.Conn
-    Credential Credential
-    Description sdp.MediaDescription
-    DefaultCandidate *Candidate
-}
-
 type Agent struct {
-    Server IceServer
+    Server     IceServer
     Aggressive bool
-    State int
-    Streams []Media
-    Local []*Candidate
-    Remote []*Candidate
-    Pairs []*CandidatePair
-    mu sync.*RWMutex
+    State      int
+    Streams    []*MediaStream
+    mu         sync.*RWMutex
 }
-
-
 
 func (a *Agent) GetOffer() sdp.SessionDescription {
     a.setCandidates()
@@ -65,6 +53,9 @@ func (a *Agent) Check() {
 
 func (a *Agent) decodeRemoteSDP(s sdp.SessionDescription) {
     // addRemoteCandidate
+    for _, m := range s.MediaDescriptions {
+        
+    }
 }
 
 func (a *Agent) formulateSDP() sdp.SessionDescription {
@@ -124,72 +115,22 @@ func (a *Agent) gatherCandidates() {
         Address: TransportAddr{IPAddr:stunHost.Ip(),Port:stunHost.Port(),Transport:stunHost.Transport()},
         Type: serverReflex
     }
-    a.addCandidate(c)
+    a.AddLocal(c)
 }
 
-func (a *Agent) addCandidate(c *Candidate) error {
-    if len(a.Local) == 100 {
-        return errors.New("too many candidates")
-    }
-    // set priority
-    var typPref int
-    switch c.Type {
-    case host:
-        typPref = 126
-    case serverReflex:
-        typPref = 100
-    case peerReflex:
-        typPref = 110
-    case relay:
-        typPref = 0
-    }
-    localPref := 65535 - len(a.Local)
-    priority = (math.Exp2(24) * typPref) + (math.Exp2(8) * localPref) + (256)
-    c.Priority = priority
-    var redudant int
-    var added bool
-    a.mu.Lock()
-    defer a.mu.Unlock()
-    for key, cand := range a.Local {
-        // check for redundant
-        if c.TransportAddr.Transport == cand.TransportAddr.Transport && c.Base == cand.Base {
-            if c.Priority > cand.Priority {
-                redundant = key
-            }
-        }
-        // add in proper place in list
-        if !added {
-            if c.Priority > cand.Priority {
-                a.Local = append([c],a.Local...)
-                added = true
-            } else {
-                if key > len(a.Local) - 1 {
-                    if c.Priority > a.Local[key+1].Priority {
-                        a.Local = append(append(a.Local[0:key],c)a.Local[key+1:len(a.Local)-1]...)
-                        added = true
-                    }
-                } else {
-                    a.Local = append(a.Local,c)
-                    added = true
-                }
-            }
+func (a *Agent) AddLocal(c *Candidate) error {
+    for _, m := range a.Streams {
+        for _, comp := range m.Components {
+            comp.AddLocal(c)
         }
     }
-    // get rid of redundant, if it exists
-    a.Local = append(a.Local[0:redundant],a.Local[redundant+1,len(a.Local)-1]
     return nil
 }
 
-func (a *Agent) setDefaultCandidates() {
-    index  := 0
-    a.mu.Lock()
-    defer mu.Unlock()
-    for key, cand := range a.Local {
-        if a.Local[index].Type != cand.Type {
-            index = key
+func (a *Agent) SetDefaultCandidates() {
+    for _, m := range a.Streams {
+        for _, comp := range m.Components {
+            comp.SetDefaultLocal()
         }
-    }
-    for _, conn := range a.Streams {
-        conn.DefaultCandidate = a.Local[index]
     }
 }

@@ -22,22 +22,21 @@ type TransportAddr struct {
 }
 
 type Candidate struct {
-    Address TransportAddr
-    Type string
-    Priority uint32
-    Foundation string
-    ComponentId int
+    Address     TransportAddr
+    Type        string
+    Priority    uint32
+    Foundation  string
     RelatedAddr TransportAddr
-    Base string
+    Base        string
 }
 
 type CandidatePair struct {
-    Local Candidate
-    Remote Candidate
-    Default bool
-    Valid bool
-    Nominated bool
-    State byte
-    LocalCred Credential
+    Local      Candidate
+    Remote     Candidate
+    Default    bool
+    Valid      bool
+    Nominated  bool
+    State      byte
+    LocalCred  Credential
     RemoteCred Credential
 }
