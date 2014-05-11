@@ -5,16 +5,26 @@ import (
     "github.com/ccding/go-stun/stun"
     "github.com/WeMeetAgain/go-sdp"
     "math"
+    "strconv"
     )
 
+
+
 type IceServer struct {
-    urls []string
-    username string
-    credential string
+    Urls []string
+    LocalCred Credential
+    RemoteCred Credential
+    Description SessionDescription
+}
+
+type Credential struct {
+    Username string
+    Password string
 }
 
 type Media struct {
     Conn *net.Conn
+    Credential Credential
     Description sdp.MediaDescription
     DefaultCandidate *Candidate
 }
@@ -22,12 +32,15 @@ type Media struct {
 type Agent struct {
     Server IceServer
     Aggressive bool
+    State int
     Streams []Media
     Local []*Candidate
     Remote []*Candidate
     Pairs []*CandidatePair
-    candidateMu sync.*RWMutex
+    mu sync.*RWMutex
 }
+
+
 
 func (a *Agent) GetOffer() sdp.SessionDescription {
     a.setCandidates()
@@ -35,14 +48,14 @@ func (a *Agent) GetOffer() sdp.SessionDescription {
 }
 
 func (a *Agent) SetRemoteOffer(offer sdp.SessionDescription) sdp.SessionDescription {
-    a.Remote = decodeSDP(offer)
+    a.Remote = decodeRemoteSDP(offer)
     a.setCandidates()
     a.Check()
     return a.formulateSDP()
 }
 
 func (a *Agent) SetRemoteAnswer(answer sdp.SessionDescription) {
-    a.Remote = decodeSDP(answer)
+    a.Remote = decodeRemoteSDP(answer)
     a.Check()
 }
 
@@ -50,12 +63,43 @@ func (a *Agent) Check() {
     
 }
 
-func (a *Agent) decodeSDP(s sdp.SessionDescription) {
-    
+func (a *Agent) decodeRemoteSDP(s sdp.SessionDescription) {
+    // addRemoteCandidate
 }
 
 func (a *Agent) formulateSDP() sdp.SessionDescription {
-    
+    s := a.Description
+    // Media Description for each Media stream
+    for _, stream := range a.Streams {
+        media := stream.Description
+        if len(a.Streams) == 1 {
+            s.Connection = sdp.Connection{"IN", "IP4",stream.DefaultCandidate.Address.IPAddr}
+        } else {
+            media.Connection = sdp.Connection{"IN", "IP4",stream.DefaultCandidate.Address.IPAddr}
+        }
+        // candidate attribute 
+        for _, cand := a.Local {
+            attrVal := cand.Foundation + " " + string(cand.ComponentId)
+            + " " + cand.Address.Transport + " " + strconv.FormatUint(uint64(cand.Priority),10)
+            + " " + cand.Address.IPAddr + " " + cand.Address.Port
+            + " typ " + cand.Type
+            if cand.RelatedAddr.IPAddr != "" {
+                attrVal += " raddr " + cand.RelatedAddr.IPAddr
+            }
+            if cand.RelatedAddr.Port != "" {
+                attrVal += " rport " + cand.RelatedAddr.Port
+            }
+            attr := sdp.Attribute{Key:"candidate", Value:attrVal}
+            media.Attributes = append(media.Attributes, attr)
+        }
+        // media-specific credential attribute
+        if stream.Credential.Username != "" && stream.Credential.Password != "" {
+            media.Attributes = append(media.Attributes, sdp.Attribute{"ice-pwd",stream.Credential.Password})
+            media.Attributes = append(media.Attributes, sdp.Attribute{"ice-ufrag",stream.Credential.Username})
+        }
+        s.MediaDescriptions = append(s.MediaDescriptions,media)
+    }
+    return s
 }
 
 func (a *Agent) setCandidates() {
@@ -104,10 +148,10 @@ func (a *Agent) addCandidate(c *Candidate) error {
     c.Priority = priority
     var redudant int
     var added bool
-    a.candidateMu.Lock()
-    defer a.candidateMu.Unlock()
+    a.mu.Lock()
+    defer a.mu.Unlock()
     for key, cand := range a.Local {
-        // check for redundanct
+        // check for redundant
         if c.TransportAddr.Transport == cand.TransportAddr.Transport && c.Base == cand.Base {
             if c.Priority > cand.Priority {
                 redundant = key
@@ -138,8 +182,8 @@ func (a *Agent) addCandidate(c *Candidate) error {
 
 func (a *Agent) setDefaultCandidates() {
     index  := 0
-    a.candidateMu.Lock()
-    defer candidateMu.Unlock()
+    a.mu.Lock()
+    defer mu.Unlock()
     for key, cand := range a.Local {
         if a.Local[index].Type != cand.Type {
             index = key

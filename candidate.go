@@ -27,7 +27,7 @@ type Candidate struct {
     Priority uint32
     Foundation string
     ComponentId int
-    RelatedAddr string
+    RelatedAddr TransportAddr
     Base string
 }
 
@@ -38,4 +38,6 @@ type CandidatePair struct {
     Valid bool
     Nominated bool
     State byte
+    LocalCred Credential
+    RemoteCred Credential
 }
