@@ -10,6 +10,16 @@ import (
     "strconv"
     )
 
+var MaxPairs = 100
+
+const (
+    IceWaiting byte = iota
+    IceRunning
+    IceCompleted
+    IceFailed
+    IceTerminated
+    )
+
 type IceServer struct {
     Urls        []string
     CredLocal   Credential
@@ -26,7 +36,7 @@ type Agent struct {
     Server      IceServer
     Aggressive  bool
     Controlling bool
-    State       int
+    State       byte
     Streams     []*MediaStream
     mu          sync.*RWMutex
 }
@@ -39,17 +49,53 @@ func (a *Agent) GetOffer() sdp.SessionDescription {
 func (a *Agent) SetRemoteOffer(offer sdp.SessionDescription) sdp.SessionDescription {
     a.Remote = decodeRemoteSDP(offer)
     a.setCandidates()
-    a.Check()
+    a.StartConnectivityEstablishment()
     return a.formulateSDP()
 }
 
 func (a *Agent) SetRemoteAnswer(answer sdp.SessionDescription) {
     a.Remote = decodeRemoteSDP(answer)
-    a.Check()
+    a.StartConnectivityEstablishment()
 }
 
-func (a *Agent) Check() {
-    
+func (a *Agent) StartConnectivityEstablishment() {
+    a.removeMismatchedStreams()
+    a.initCheckLists()
+    a.State = IceRunning
+    // check candidatepairs who've already received connectivity checks
+    //
+    a.startChecks()
+}
+
+// remove dangling components and streams (ones with no remote candidates or components)
+func (a *Agent) removeMismatchedStreams() {
+    for i, s := range a.Streams {
+        for j, comp := range s.Components {
+            if len(comp.Remote) == 0 {
+                delete(a.Streams[i].Component,j)
+            }
+        }
+        if len(a.Streams[i]) == 0 {
+            a.removeStream(s.Name)
+        }
+    }
+}
+
+func (a *Agent) removeStream(n string) {
+    for i, s := range a.Streams {
+        if s.Name == n {
+            delete(a.Streams,i)
+            return
+        }
+    }
+}
+
+func (a *Agent) initCheckLists() {
+    MaxPairsPerStream = MaxPairs / len(a.Streams)
+    for _, s := range a.Streams {
+        s.initCheckList()
+    }
+    a.Streams[0].setInitialCheckListStates()
 }
 
 func (a *Agent) decodeRemoteSDP(s sdp.SessionDescription) {

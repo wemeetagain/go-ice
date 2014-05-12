@@ -29,7 +29,7 @@ type Candidate struct {
     Address     TransportAddr
     Type        string
     Priority    uint32
-    Foundation  string
+    Foundation  int
     RelatedAddr TransportAddr
     Base        string
 }
@@ -56,17 +56,41 @@ type CandidatePair struct {
     CredRemote  *Credential
 }
 
+func (cp *CandidatePair) Foundation() int {
+    return cp.Local.Foundation + cp.Remote.Foundation
+}
+
 type PairList []*CandidatePair
 
 // implement sort.Interface
-func (pl PairList) Len() int {
+func (pl *PairList) Len() int {
     return len(pl)
 }
 
-func (pl PairList) Less(i, j int) {
+func (pl *PairList) Less(i, j int) {
     pl[i], pl[j] = pl[j], pl[i]
 }
 
-func (pl PairList) Less(i, j int) bool {
+func (pl *PairList) Less(i, j int) bool {
     return pl[i].Priority < pl[j].Priority
+}
+// end sort Interface
+
+func (pl *PairList) State() byte {
+    waiting := false
+    for _,cp := range pl {
+        switch cp.State {
+        case Failed:
+            return IceFailed
+        case Succeeded:
+            continue
+        default:
+            waiting = true
+        }
+    }
+    if waiting {
+        return IceWaiting
+    } else {
+        return IceCompleted
+    }
 }

@@ -92,6 +92,7 @@ func (comp *Component) Pairs() []*CandidatePair {
                 cp = append(cp, &CandidatePair{
                     ComponentId: comp.Id,
                     Priority: p,
+                    State: Frozen,
                     Local: l,
                     Remote: r,
                     CredLocal: l.ParentStream.getCredLocal(),
