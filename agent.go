@@ -23,11 +23,12 @@ type Credential struct {
 }
 
 type Agent struct {
-    Server     IceServer
-    Aggressive bool
-    State      int
-    Streams    []*MediaStream
-    mu         sync.*RWMutex
+    Server      IceServer
+    Aggressive  bool
+    Controlling bool
+    State       int
+    Streams     []*MediaStream
+    mu          sync.*RWMutex
 }
 
 func (a *Agent) GetOffer() sdp.SessionDescription {
