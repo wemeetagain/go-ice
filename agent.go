@@ -1,5 +1,3 @@
-// based partially on ice4j
-
 package ice
 
 import (
@@ -8,6 +6,7 @@ import (
     "github.com/WeMeetAgain/go-sdp"
     "math"
     "strconv"
+    "time"
     )
 
 var MaxPairs = 100
@@ -38,7 +37,7 @@ type Agent struct {
     Controlling bool
     State       byte
     Streams     []*MediaStream
-    mu          sync.*RWMutex
+    checkers    []*checker
 }
 
 func (a *Agent) GetOffer() sdp.SessionDescription {
@@ -180,4 +179,22 @@ func (a *Agent) SetDefaultCandidates() {
             comp.SetDefaultLocal()
         }
     }
+}
+
+func (a *Agent) pendingStreams() []*MediaStream {
+    streams := make([]*MediaStream)
+    for _, s := range a.Streams {
+        if s.CheckList.State == IceWaiting {
+            streams = append(streams,s)
+        }
+    }
+    return streams
+}
+
+func (a *Agent) getWaitInterval() time.Duration {
+    activeChecks := a.ActiveCheckListCount()
+    if activeChecks < 1 {
+        acativeChecks = 1
+    }
+    return time.Duration(a.calculateTa() * activeChecks)
 }
